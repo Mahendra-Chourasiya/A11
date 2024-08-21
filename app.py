@@ -2,12 +2,11 @@ import streamlit as st
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.vectorstores import FAISS
-from langchain_community.chat_message_histories import InMemoryChatMessageHistory
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_openai import OpenAI
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import PyPDFLoader
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.llms import OpenAI
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.document_loaders import PyPDFLoader
 import os
 import json
 
@@ -32,9 +31,20 @@ chat_history_path = f"chat_history/{session_id}.json"
 if not os.path.exists("chat_history"):
     os.makedirs("chat_history")
 
+# Custom chat history management
+class CustomChatHistory:
+    def __init__(self):
+        self.messages = []
+
+    def add_user_message(self, message):
+        self.messages.append({"role": "user", "content": message})
+
+    def add_assistant_message(self, message):
+        self.messages.append({"role": "assistant", "content": message})
+
 # Load chat history from JSON
 def load_chat_history(session_id):
-    chat_history = InMemoryChatMessageHistory()
+    chat_history = CustomChatHistory()
     try:
         with open(f"chat_history/{session_id}.json", "r") as history_file:
             messages = json.load(history_file)
@@ -49,9 +59,8 @@ def load_chat_history(session_id):
 
 # Save chat history to JSON
 def save_chat_history(session_id, chat_history):
-    messages = [{"role": "assistant", "content": msg['content']} if msg['role'] == 'assistant' else {"role": "user", "content": msg['content']} for msg in chat_history.messages]
     with open(f"chat_history/{session_id}.json", "w") as history_file:
-        json.dump(messages, history_file)
+        json.dump(chat_history.messages, history_file)
 
 chat_history = load_chat_history(session_id)
 
