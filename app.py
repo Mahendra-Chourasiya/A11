@@ -361,6 +361,54 @@ embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
 # Set up Streamlit layout
 st.set_page_config(layout="wide", page_icon="🤖", page_title="Conversational RAG")
+
+# Add custom CSS
+st.markdown("""
+    <style>
+        body {
+            background-color: #f0f2f6;
+            color: #333;
+        }
+        .stButton > button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+        }
+        .stButton > button:hover {
+            background-color: #0056b3;
+        }
+        .stFileUploader {
+            border: 2px solid #007bff;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        .stFileUploader:hover {
+            border-color: #0056b3;
+        }
+        .stDownloadButton {
+            background-color: #28a745;
+            color: white;
+            border: none;
+        }
+        .stDownloadButton:hover {
+            background-color: #218838;
+        }
+        .stTextInput input {
+            border-radius: 5px;
+            border: 1px solid #007bff;
+        }
+        .stTextInput input:focus {
+            border-color: #0056b3;
+        }
+        .stMarkdown h1 {
+            color: #007bff;
+        }
+        .stMarkdown p {
+            color: #666;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 st.markdown("<h1 style='text-align: center;'>Conversational RAG with PDF Support</h1>", unsafe_allow_html=True)
 st.write("<p style='text-align: center;'>Upload PDFs and interact with their content through chat.</p>", unsafe_allow_html=True)
 
@@ -372,33 +420,36 @@ llm = OpenAI(api_key=openai_api_key)
 with st.sidebar:
     st.title("📄 Document Manager")
     
-    uploaded_files = st.file_uploader("Upload PDFs", type="pdf", accept_multiple_files=True)
-    if uploaded_files:
-        for uploaded_file in uploaded_files:
-            file_path = os.path.join("pdfs", uploaded_file.name)
-            with open(file_path, "wb") as file:
-                file.write(uploaded_file.getvalue())
-        st.success(f"Uploaded {len(uploaded_files)} file(s) to the 'pdfs' folder.")
+    # Collapsible upload section
+    with st.expander("Upload PDFs", expanded=True):
+        uploaded_files = st.file_uploader("Upload PDFs", type="pdf", accept_multiple_files=True)
+        if uploaded_files:
+            for uploaded_file in uploaded_files:
+                file_path = os.path.join("pdfs", uploaded_file.name)
+                with open(file_path, "wb") as file:
+                    file.write(uploaded_file.getvalue())
+            st.success(f"Uploaded {len(uploaded_files)} file(s) to the 'pdfs' folder.")
     
-    # Display and download PDFs alphabetically
-    st.subheader("Available PDFs")
-    pdf_files_sorted = sorted(os.listdir("pdfs"))
-    for pdf in pdf_files_sorted:
-        file_path = os.path.join("pdfs", pdf)
-        with open(file_path, "rb") as file:
-            st.download_button(
-                label=f"📥 Download {pdf}",
-                data=file,
-                file_name=pdf,
-                mime="application/pdf"
-            )
+    # Collapsible download section
+    with st.expander("Available PDFs", expanded=True):
+        pdf_files_sorted = sorted(os.listdir("pdfs"))
+        for pdf in pdf_files_sorted:
+            file_path = os.path.join("pdfs", pdf)
+            with open(file_path, "rb") as file:
+                st.download_button(
+                    label=f"📥 Download {pdf}",
+                    data=file,
+                    file_name=pdf,
+                    mime="application/pdf",
+                    help="Click to download this PDF."
+                )
     
-    # Remove PDFs from the folder
-    st.subheader("🗑️ Remove a PDF")
-    pdf_to_remove = st.selectbox("Select a PDF to remove", pdf_files_sorted)
-    if st.button("Remove PDF"):
-        os.remove(os.path.join("pdfs", pdf_to_remove))
-        st.success(f"Removed {pdf_to_remove}")
+    # Collapsible remove section
+    with st.expander("Remove a PDF", expanded=True):
+        pdf_to_remove = st.selectbox("Select a PDF to remove", pdf_files_sorted)
+        if st.button("Remove PDF"):
+            os.remove(os.path.join("pdfs", pdf_to_remove))
+            st.success(f"Removed {pdf_to_remove}")
 
 # Load all PDFs from the "pdfs" folder
 pdf_files = sorted([os.path.join("pdfs", f) for f in os.listdir("pdfs") if f.endswith(".pdf")])
