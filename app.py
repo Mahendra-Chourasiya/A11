@@ -354,5 +354,7 @@ if pdf_files:
 
 else:
     st.warning("No PDFs available in the 'pdfs' folder.")
-else:
-    st.warning("Please enter both the OpenAI and LangChain API keys")
+
+# Check if OpenAI and LangChain API keys are entered
+if not (openai_api_key and langchain_api_key):
+    st.warning("Please enter both the OpenAI and LangChain API keys.")
