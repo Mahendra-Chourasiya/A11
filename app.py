@@ -152,6 +152,7 @@
 
 
 
+
 # import streamlit as st
 # from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 # from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -284,6 +285,7 @@
 #         # Chat input and chat history display
 #         session_history = get_session_history(session_id)
 
+#         # Display chat history
 #         for message in session_history.messages:
 #             if message.type == "ai":
 #                 st.chat_message("assistant").markdown(message.content)
@@ -315,8 +317,6 @@
 
 
 
-
-
 import streamlit as st
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -329,8 +329,22 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import PyPDFLoader
 import os
 
-# Ensure the pdfs folder exists
+# Ensure the pdfs folder exists and pre-uploaded PDFs are present
 os.makedirs("pdfs", exist_ok=True)
+
+# Pre-uploaded PDFs
+pre_uploaded_pdfs = [
+    "document1.pdf",
+    "document2.pdf",
+    "document3.pdf",
+    "document4.pdf"
+]
+
+# Place these pre-uploaded PDFs in the 'pdfs' directory
+# Make sure these files exist in the 'pdfs' directory before running the app
+for pdf in pre_uploaded_pdfs:
+    if not os.path.isfile(os.path.join("pdfs", pdf)):
+        st.warning(f"Pre-uploaded file missing: {pdf}")
 
 # Set up embeddings
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
