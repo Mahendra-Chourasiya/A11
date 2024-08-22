@@ -326,6 +326,7 @@
 
 
 
+
 import streamlit as st
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -338,15 +339,22 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import PyPDFLoader
 import os
 
-# Ensure the pdfs folder exists and pre-uploaded PDFs are present
+# Set page configuration
+st.set_page_config(
+    layout="centered",
+    page_icon="🤖",
+    page_title="Conversational RAG"
+)
+
+# Ensure the pdfs folder exists
 os.makedirs("pdfs", exist_ok=True)
 
-# Pre-uploaded PDFs
+# List of pre-uploaded PDFs
 pre_uploaded_pdfs = [
-    "Generative_AI.pdf",
-    "Moodle.pdf",
-    "aws.pdf",
-    "Drupal.pdf"
+    "document1.pdf",
+    "document2.pdf",
+    "document3.pdf",
+    "document4.pdf"
 ]
 
 # Place these pre-uploaded PDFs in the 'pdfs' directory
@@ -376,55 +384,9 @@ pdf_files = sorted([os.path.join("pdfs", f) for f in os.listdir("pdfs") if f.end
 vectorstore = batch_process_documents(pdf_files)
 retriever = vectorstore.as_retriever()
 
-# Set up Streamlit layout
-st.set_page_config(layout="centered", page_icon="🤖", page_title="Conversational RAG")
-st.markdown("<h1 style='text-align: center;'>Conversational RAG with PDF Support</h1>", unsafe_allow_html=True)
-st.write("<p style='text-align: center;'>Upload PDFs and chat with their content</p>", unsafe_allow_html=True)
-
-# Initialize the LLM with the OpenAI API key
+# Initialize the LLM with the OpenAI API key from Streamlit secrets
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 llm = OpenAI(api_key=openai_api_key)
-
-# Sidebar: PDF management
-st.sidebar.title("📄 Document Manager")
-uploaded_files = st.sidebar.file_uploader("Upload PDFs", type="pdf", accept_multiple_files=True)
-
-if uploaded_files:
-    for uploaded_file in uploaded_files:
-        file_path = os.path.join("pdfs", uploaded_file.name)
-        with open(file_path, "wb") as file:
-            file.write(uploaded_file.getvalue())
-    st.sidebar.success(f"Uploaded {len(uploaded_files)} file(s) to the 'pdfs' folder.")
-
-# Display and download PDFs alphabetically
-pdf_files_sorted = sorted(os.listdir("pdfs"))
-for pdf in pdf_files_sorted:
-    file_path = os.path.join("pdfs", pdf)
-    with open(file_path, "rb") as file:
-        st.sidebar.download_button(
-            label=f"📥 Download {pdf}",
-            data=file,
-            file_name=pdf,
-            mime="application/pdf"
-        )
-
-# Remove PDFs from the folder
-st.sidebar.subheader("🗑️ Remove a PDF")
-pdf_to_remove = st.sidebar.selectbox("Select a PDF to remove", pdf_files_sorted)
-if st.sidebar.button("Remove PDF"):
-    os.remove(os.path.join("pdfs", pdf_to_remove))
-    st.sidebar.success(f"Removed {pdf_to_remove}")
-
-# Chat interface
-st.sidebar.title("💬 Chat Session")
-session_id = st.sidebar.text_input("Session ID", value="default_session")
-collaborator_id = st.sidebar.text_input("Collaborator ID", value="user1")
-
-# Function to get session history
-def get_session_history(session: str) -> ChatMessageHistory:
-    if session not in st.session_state:
-        st.session_state[session] = ChatMessageHistory()
-    return st.session_state[session]
 
 # System prompt for contextualizing the question
 contextualize_q_system_prompt = (
@@ -467,10 +429,49 @@ rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chai
 
 conversational_rag_chain = rag_chain
 
-# Chat input and chat history display
-session_history = get_session_history(session_id)
+# Sidebar for document management
+st.sidebar.title("📄 Document Manager")
+uploaded_files = st.sidebar.file_uploader("Upload PDFs", type="pdf", accept_multiple_files=True)
+
+if uploaded_files:
+    for uploaded_file in uploaded_files:
+        file_path = os.path.join("pdfs", uploaded_file.name)
+        with open(file_path, "wb") as file:
+            file.write(uploaded_file.getvalue())
+    st.sidebar.success(f"Uploaded {len(uploaded_files)} file(s) to the 'pdfs' folder.")
+
+# Display and download PDFs alphabetically
+pdf_files_sorted = sorted(os.listdir("pdfs"))
+for pdf in pdf_files_sorted:
+    file_path = os.path.join("pdfs", pdf)
+    with open(file_path, "rb") as file:
+        st.sidebar.download_button(
+            label=f"📥 Download {pdf}",
+            data=file,
+            file_name=pdf,
+            mime="application/pdf"
+        )
+
+# Remove PDFs from the folder
+st.sidebar.subheader("🗑️ Remove a PDF")
+pdf_to_remove = st.sidebar.selectbox("Select a PDF to remove", pdf_files_sorted)
+if st.sidebar.button("Remove PDF"):
+    os.remove(os.path.join("pdfs", pdf_to_remove))
+    st.sidebar.success(f"Removed {pdf_to_remove}")
+
+# Chat interface
+st.sidebar.title("💬 Chat Session")
+session_id = st.sidebar.text_input("Session ID", value="default_session")
+collaborator_id = st.sidebar.text_input("Collaborator ID", value="user1")
+
+# Function to get session history
+def get_session_history(session: str) -> ChatMessageHistory:
+    if session not in st.session_state:
+        st.session_state[session] = ChatMessageHistory()
+    return st.session_state[session]
 
 # Display chat history
+session_history = get_session_history(session_id)
 for message in session_history.messages:
     if message.role == "assistant":
         st.chat_message("assistant").markdown(message.content)
@@ -482,10 +483,16 @@ if user_input:
     try:
         # Update chat history
         session_history.add_user_message(user_input)
-        response = fetch_answer(user_input, session_history.messages)
+        response = conversational_rag_chain.invoke(
+            {
+                "input": user_input,
+                "chat_history": session_history.messages,
+                "context": "PDF Content or additional context here"
+            }
+        )
         # Display assistant response
-        st.chat_message("assistant").markdown(response)
-        session_history.add_ai_message(response)
+        st.chat_message("assistant").markdown(response['answer'])
+        session_history.add_ai_message(response['answer'])
     except Exception as e:
         st.error(f"An error occurred: {str(e)}")
 else:
