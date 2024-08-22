@@ -343,10 +343,10 @@ os.makedirs("pdfs", exist_ok=True)
 
 # Pre-uploaded PDFs
 pre_uploaded_pdfs = [
-    "document1.pdf",
-    "document2.pdf",
-    "document3.pdf",
-    "document4.pdf"
+    "Generative_AI.pdf",
+    "Moodle.pdf",
+    "aws.pdf",
+    "Drupal.pdf"
 ]
 
 # Place these pre-uploaded PDFs in the 'pdfs' directory
