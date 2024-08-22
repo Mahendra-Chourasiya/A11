@@ -461,7 +461,12 @@ if pdf_files:
     st.markdown("<hr>", unsafe_allow_html=True)  # Horizontal line for separation
     st.header("Chat with PDF Content")
     
-    session_history = get_session_history("default_session")
+    # Use a default session ID
+    session_id = "default_session"
+    if session_id not in st.session_state:
+        st.session_state[session_id] = ChatMessageHistory()
+    
+    session_history = st.session_state[session_id]
 
     # Display chat history
     for message in session_history.messages:
