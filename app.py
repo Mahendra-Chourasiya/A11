@@ -152,13 +152,12 @@ import streamlit as st
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.vectorstores import FAISS
-from langchain_community.chat_message_histories import ChatMessageHistory
-from langchain_core.chat_history import BaseChatMessageHistory
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_openai import OpenAI
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.chat_message_histories import InMemoryChatMessageHistory
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain import OpenAI
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.document_loaders import PyPDFLoader
 import os
 
 # Ensure the pdfs folder exists
@@ -216,9 +215,9 @@ if openai_api_key and langchain_api_key:
     collaborator_id = st.sidebar.text_input("Collaborator ID", value="user1")
 
     # Function to get session history
-    def get_session_history(session: str) -> BaseChatMessageHistory:
+    def get_session_history(session: str) -> InMemoryChatMessageHistory:
         if session not in st.session_state:
-            st.session_state[session] = ChatMessageHistory()
+            st.session_state[session] = InMemoryChatMessageHistory()
         return st.session_state[session]
 
     # Load all PDFs from the "pdfs" folder
@@ -291,7 +290,7 @@ if openai_api_key and langchain_api_key:
         if user_input:
             try:
                 # Update chat history
-                session_history.add_message(role="user", content=user_input)
+                session_history.add_user_message(user_input)
                 response = conversational_rag_chain.invoke(
                     {
                         "input": user_input,
@@ -301,7 +300,7 @@ if openai_api_key and langchain_api_key:
                 )
                 # Display assistant response
                 st.chat_message("assistant").markdown(response['answer'])
-                session_history.add_message(role="assistant", content=response['answer'])
+                session_history.add_ai_message(response['answer'])
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
     else:
