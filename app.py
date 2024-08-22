@@ -399,17 +399,6 @@ with st.sidebar:
     if st.button("Remove PDF"):
         os.remove(os.path.join("pdfs", pdf_to_remove))
         st.success(f"Removed {pdf_to_remove}")
-    
-    # Chat session management
-    st.title("💬 Chat Session")
-    session_id = st.text_input("Session ID", value="default_session")
-    collaborator_id = st.text_input("Collaborator ID", value="user1")
-
-# Function to get session history
-def get_session_history(session: str) -> ChatMessageHistory:
-    if session not in st.session_state:
-        st.session_state[session] = ChatMessageHistory()
-    return st.session_state[session]
 
 # Load all PDFs from the "pdfs" folder
 pdf_files = sorted([os.path.join("pdfs", f) for f in os.listdir("pdfs") if f.endswith(".pdf")])
@@ -472,7 +461,7 @@ if pdf_files:
     st.markdown("<hr>", unsafe_allow_html=True)  # Horizontal line for separation
     st.header("Chat with PDF Content")
     
-    session_history = get_session_history(session_id)
+    session_history = get_session_history("default_session")
 
     # Display chat history
     for message in session_history.messages:
