@@ -160,7 +160,6 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 import os
-import pdfplumber
 
 # Ensure the pdfs folder exists
 os.makedirs("pdfs", exist_ok=True)
@@ -292,7 +291,7 @@ if openai_api_key and langchain_api_key:
         if user_input:
             try:
                 # Update chat history
-                session_history.add_message("user", user_input)
+                session_history.add_message(role="user", content=user_input)
                 response = conversational_rag_chain.invoke(
                     {
                         "input": user_input,
@@ -302,7 +301,7 @@ if openai_api_key and langchain_api_key:
                 )
                 # Display assistant response
                 st.chat_message("assistant").markdown(response['answer'])
-                session_history.add_message("assistant", response['answer'])
+                session_history.add_message(role="assistant", content=response['answer'])
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
     else:
