@@ -148,11 +148,15 @@
 #         st.warning("No PDFs available in the 'pdfs' folder.")
 # else:
 #     st.warning("Please enter both the OpenAI and LangChain API keys")
+
+
+
+
 import streamlit as st
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.vectorstores import FAISS
-from langchain_community.chat_message_histories import InMemoryChatMessageHistory
+from langchain.memory import ChatMessageHistory  # Import from langchain.memory
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain import OpenAI
 from langchain.embeddings import HuggingFaceEmbeddings
@@ -215,9 +219,9 @@ if openai_api_key and langchain_api_key:
     collaborator_id = st.sidebar.text_input("Collaborator ID", value="user1")
 
     # Function to get session history
-    def get_session_history(session: str) -> InMemoryChatMessageHistory:
+    def get_session_history(session: str) -> ChatMessageHistory:
         if session not in st.session_state:
-            st.session_state[session] = InMemoryChatMessageHistory()
+            st.session_state[session] = ChatMessageHistory()
         return st.session_state[session]
 
     # Load all PDFs from the "pdfs" folder
