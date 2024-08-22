@@ -326,12 +326,11 @@
 
 
 
-
 import streamlit as st
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.vectorstores import FAISS
-from langchain.memory import ChatMessageHistory  # Import from langchain.memory
+from langchain.memory import ChatMessageHistory
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain import OpenAI
 from langchain.embeddings import HuggingFaceEmbeddings
@@ -344,10 +343,10 @@ os.makedirs("pdfs", exist_ok=True)
 
 # Pre-uploaded PDFs
 pre_uploaded_pdfs = [
-    "Generative_AI.pdf",
-    "Moodle.pdf",
-    "aws.pdf",
-    "Drupal.pdf"
+    "document1.pdf",
+    "document2.pdf",
+    "document3.pdf",
+    "document4.pdf"
 ]
 
 # Place these pre-uploaded PDFs in the 'pdfs' directory
@@ -356,7 +355,26 @@ for pdf in pre_uploaded_pdfs:
         st.warning(f"Pre-uploaded file missing: {pdf}")
 
 # Set up embeddings
-embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+@st.cache_data
+def load_embeddings():
+    return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
+embeddings = load_embeddings()
+
+@st.cache_data
+def batch_process_documents(pdf_files):
+    documents = []
+    for pdf_file in pdf_files:
+        loader = PyPDFLoader(pdf_file)
+        documents.extend(loader.load())
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=3000, chunk_overlap=300)
+    splits = text_splitter.split_documents(documents)
+    vectorstore = FAISS.from_documents(documents=splits, embedding=embeddings)
+    return vectorstore
+
+pdf_files = sorted([os.path.join("pdfs", f) for f in os.listdir("pdfs") if f.endswith(".pdf")])
+vectorstore = batch_process_documents(pdf_files)
+retriever = vectorstore.as_retriever()
 
 # Set up Streamlit layout
 st.set_page_config(layout="centered", page_icon="🤖", page_title="Conversational RAG")
@@ -408,89 +426,67 @@ def get_session_history(session: str) -> ChatMessageHistory:
         st.session_state[session] = ChatMessageHistory()
     return st.session_state[session]
 
-# Load all PDFs from the "pdfs" folder
-pdf_files = sorted([os.path.join("pdfs", f) for f in os.listdir("pdfs") if f.endswith(".pdf")])
+# System prompt for contextualizing the question
+contextualize_q_system_prompt = (
+    "Given a chat history and the latest user question "
+    "which might reference context in the chat history, "
+    "formulate a standalone question which can be understood "
+    "without the chat history. Do NOT answer the question, "
+    "just reformulate it if needed and otherwise return it as is."
+)
+contextualize_q_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", contextualize_q_system_prompt),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
+    ]
+)
 
-if pdf_files:
-    documents = []
-    for pdf_file in pdf_files:
-        loader = PyPDFLoader(pdf_file)
-        docs = loader.load()
-        documents.extend(docs)
+history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_q_prompt)
 
-    # Split and create embeddings for the documents
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=5000, chunk_overlap=500)
-    splits = text_splitter.split_documents(documents)
-    vectorstore = FAISS.from_documents(documents=splits, embedding=embeddings)
-    retriever = vectorstore.as_retriever()
+# System prompt for answering the question
+system_prompt = (
+    "You are an assistant for question-answering tasks. "
+    "Use the following pieces of retrieved context to answer "
+    "the question. If you don't know the answer, say that you "
+    "don't know. Use three sentences maximum and keep the "
+    "answer concise."
+    "\n\n"
+    "{context}"
+)
+qa_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", system_prompt),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
+    ]
+)
 
-    # System prompt for contextualizing the question
-    contextualize_q_system_prompt = (
-        "Given a chat history and the latest user question "
-        "which might reference context in the chat history, "
-        "formulate a standalone question which can be understood "
-        "without the chat history. Do NOT answer the question, "
-        "just reformulate it if needed and otherwise return it as is."
-    )
-    contextualize_q_prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", contextualize_q_system_prompt),
-            MessagesPlaceholder("chat_history"),
-            ("human", "{input}"),
-        ]
-    )
+question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
+rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
-    history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_q_prompt)
+conversational_rag_chain = rag_chain
 
-    # System prompt for answering the question
-    system_prompt = (
-        "You are an assistant for question-answering tasks. "
-        "Use the following pieces of retrieved context to answer "
-        "the question. If you don't know the answer, say that you "
-        "don't know. Use three sentences maximum and keep the "
-        "answer concise."
-        "\n\n"
-        "{context}"
-    )
-    qa_prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", system_prompt),
-            MessagesPlaceholder("chat_history"),
-            ("human", "{input}"),
-        ]
-    )
+# Chat input and chat history display
+session_history = get_session_history(session_id)
 
-    question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
-    rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+# Display chat history
+for message in session_history.messages:
+    if message.role == "assistant":
+        st.chat_message("assistant").markdown(message.content)
+    elif message.role == "user":
+        st.chat_message("user").markdown(message.content)
 
-    conversational_rag_chain = rag_chain
-
-    # Chat input and chat history display
-    session_history = get_session_history(session_id)
-
-    # Display chat history
-    for message in session_history.messages:
-        if message.role == "assistant":
-            st.chat_message("assistant").markdown(message.content)
-        elif message.role == "user":
-            st.chat_message("user").markdown(message.content)
-
-    user_input = st.chat_input("Your question:")
-    if user_input:
-        try:
-            # Update chat history
-            session_history.add_user_message(user_input)
-            response = conversational_rag_chain.invoke(
-                {
-                    "input": user_input,
-                    "chat_history": session_history.messages,
-                    "context": "PDF Content or additional context here"
-                }
-            )
-            # Display assistant response
-            st.chat_message("assistant").markdown(response['answer'])
-            session_history.add_ai_message(response['answer'])
-        except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
+user_input = st.chat_input("Your question:")
+if user_input:
+    try:
+        # Update chat history
+        session_history.add_user_message(user_input)
+        response = fetch_answer(user_input, session_history.messages)
+        # Display assistant response
+        st.chat_message("assistant").markdown(response)
+        session_history.add_ai_message(response)
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
 else:
     st.warning("No PDFs available in the 'pdfs' folder.")
