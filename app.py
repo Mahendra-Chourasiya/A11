@@ -285,9 +285,9 @@ if openai_api_key and langchain_api_key:
         session_history = get_session_history(session_id)
 
         for message in session_history.messages:
-            if message.role == "assistant":
+            if message.type == "ai":
                 st.chat_message("assistant").markdown(message.content)
-            else:
+            elif message.type == "human":
                 st.chat_message("user").markdown(message.content)
 
         user_input = st.chat_input("Your question:")
